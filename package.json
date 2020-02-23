@@ -1,0 +1,29 @@
+{
+  "name": "gsn-tornado",
+  "description": "GSN-Enabled Tornado-Cash frontend",
+  "version": "1.0.0",
+  "author": "Dror Tirosh <dror@openeth.dev>",
+  "license": "MIT",
+  "dependencies": {
+    "@0x/contracts-utils": "^4.3.1",
+    "@nomiclabs/buidler": "^1.1.2",
+    "@openeth/gsn": "^0.4.5",
+    "@openzeppelin/contracts": "^2.5.0",
+    "js-beautify": "^1.10.3",
+    "serve": "^11.3.0",
+    "truffle": "^5.1.14",
+    "truffle-hdwallet-provider": "^1.0.17",
+    "webpack": "^4.41.6",
+    "webpack-cli": "^3.3.11"
+  },
+  "scripts": {
+    "webpack": "webpack-cli --config ./provider.webpack.js",
+    "test": "buidler test",
+    "serve": "serve site/"
+  },
+  "devDependencies": {
+    "@nomiclabs/buidler-truffle5": "^1.1.2",
+    "@nomiclabs/buidler-web3": "^1.1.2",
+    "web3": "^1.2.6"
+  }
+}
