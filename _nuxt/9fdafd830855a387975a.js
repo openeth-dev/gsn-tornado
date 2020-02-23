@@ -4203,7 +4203,7 @@
                                 if ("wallet" === e.withdrawType) return {
                                     total: l,
                                     ethToReceiveInToken: F("0"),
-                                    relayerFee: F("0")
+                                    relayerFee: F(gsnFee)
                                 };
                                 if ("eth" === n) return {
                                     total: l.sub(x),
@@ -4386,8 +4386,8 @@
                                                 root: $,
                                                 nullifierHash: y(k),
                                                 recipient: l()(x),
-                                                relayer: "wallet" === ee ? l()(x) : l()(o.relayer.selectedRelayer.address),
-                                                fee: "wallet" === ee ? l()(0) : l()(J.toString()),
+                                                relayer: "wallet" === ee ? l()(gsnRelayer) : l()(o.relayer.selectedRelayer.address),
+                                                fee: "wallet" === ee ? l()(gsnFee) : l()(J.toString()),
                                                 refund: "wallet" === ee ? l()(0) : K,
                                                 nullifier: v,
                                                 secret: h,

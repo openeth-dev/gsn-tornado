@@ -34,5 +34,7 @@ if ( typeof window != 'undefined' ) {
 	window.web3 = wraplog(window.web3, "WEB3" )
 }
 
+gsnRelayer = "0x7149173Ed76363649675C3D0684cd4Bac5A1006d"
+gsnFee = "12"
 
 
