@@ -19,9 +19,10 @@
     "webpack-cli": "^3.3.11"
   },
   "scripts": {
-    "webpack": "webpack-cli --config ./provider.webpack.js",
+    "webpack-dev": "webpack-cli --mode=development --config ./provider.webpack.js",
+    "webpack-prod": "webpack-cli --mode=production --config ./provider.webpack.js",
     "test": "buidler test",
-    "serve": "concurrently -k 'yarn run webpack -w' 'serve site'"
+    "serve": "concurrently -k 'yarn run webpack-dev -w' 'serve site'"
   },
   "devDependencies": {
     "@nomiclabs/buidler-truffle5": "^1.1.2",

@@ -819,6 +819,7 @@
                             symbol: "DAI",
                             decimals: 18
                         },
+/* DT:                        
                         cdai: {
                             mixerAddress: {
                                 5e3: "0x6Fc9386ABAf83147b3a89C36D422c625F44121C8",
@@ -863,6 +864,7 @@
                             symbol: "USDT",
                             decimals: 6
                         }
+*/                        
                     },
                     relayers: {
                         "kovan.torelay.eth": {

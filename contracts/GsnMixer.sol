@@ -98,6 +98,7 @@ contract GsnMixer is Ownable, RelayRecipient {
         }
 
         approveOwner(token);
+        
         token.transferFrom( getSender(), address(this), tornado.denomination()+withdrawFee);
         //allow the mixer to pull the tokens from us..
         if ( token.allowance(address(this), address(tornado)) ==0 ) {
@@ -130,6 +131,26 @@ contract GsnMixer is Ownable, RelayRecipient {
     returns (uint256, bytes memory) {
       (relay, from, encodedFunction, transactionFee, gasPrice, gasLimit, nonce, approvalData, maxPossibleCharge);
 
+      // bytes4 sig = LibBytes.readBytes4(encodedFunction,0);
+      // unit tokenPrecharge = uniswap.getTokenToEthOutputPrice(maxPossibleCharge);
+      // if ( sig == this.deposit.selector) {
+      //   ITornado tornado = address(GsnUtils.getParam(encodedFunction,0));
+
+      // } else if ( sig == this.withdraw.selector) {
+
+      // } else if ( sig == this.permit.selector) {
+
+      // } else {
+      //   return (99, "gsnmixer: invalid method");
+      // }
+
+      //TODO:
+      //  deposit:
+      //    - validate caller has enough tokens (including relayer fee)
+      //  withdraw: 
+      //    - validate relayer and fee fields are set
+      //    - validate not spent yet
+      //    - GSN2 - call verifyProof()
       uint tokenPrecharge=0;
       bytes memory context = abi.encode(tokenPrecharge);
       return(0, context);

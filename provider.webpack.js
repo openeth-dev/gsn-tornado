@@ -7,7 +7,6 @@ module.exports = {
   ],
 
   entry: './src/main.js',
-  mode: 'development',
   output: {
     path: path.resolve(__dirname, 'site'),
     filename: 'gsn.js'

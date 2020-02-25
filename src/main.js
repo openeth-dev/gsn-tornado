@@ -8,7 +8,9 @@ const abi = require( 'web3-eth-abi')
 
 const verbose=true
 
-const   approveSig = "0x095ea7b3"
+const approveSig = "0x095ea7b3"   //ERC20.approve(address,uint256)
+
+const depositSig = abi.encodeFunctionSignature('deposit(bytes32)')
 
 const   permitSig = abi.encodeFunctionSignature("permit(address,address,address,uint256,uint256,bool,bytes)")
 // const withdrawSig = '0x21a0adb632'
@@ -23,10 +25,49 @@ const nonceSig = '0x70ae92d2'
 
 class MixerProvider extends WrapperProvider {
 
+    constructor( origProvider ) {
+        let provider = origProvider
+
+        let relayprovider = new GSN.RelayProvider(origProvider, {verbose, force_gasLimit:2e6})
+        let useGSN=true
+        if ( useGSN ) {
+            //a provider that pass-through any method that is not defined in RelayProvider
+            // (e.g. event handling)
+            const wrapper = new Proxy( origProvider, {
+                 get:(target,prop)=>{ 
+                    console.log('prop=',prop)
+                    //TODO: RelayProvider's "enable" is broken... 
+                    if ( prop==='enable' ) return origProvider.enable
+                    return relayprovider[prop] || target[prop] 
+                }
+             })
+            provider = wrapper
+        }
+
+        super(provider)
+    }
+
     async eth_sendTransaction({from,to,gas,gasPrice,value,data}) {
         console.log( " ", {from,to,data})
         // return this.origSend("eth_sendTransaction", [{from,to,gas,gasPrice,value,data}] )
-        if ( data.startsWith(approveSig)) {
+        if ( data.startsWith(depositSig)) {
+            console.log( '=== proxy deposit')
+            // convert: tornado.deposit(commitment)
+            // to:      gsnmixer(tornado,commitment, permitSig)
+            const commitment = abi.decodeParameters(['bytes32'], data.slice(10))[0]
+            let permitUserSig = '0x'
+            if ( await dai.methods.allowance(from, window.gsnmixer._address).call() === '0' ) {
+                console.log( "no allowance for GsnMixer. ask user to sign")
+                const sig  = await signpermit({from,holder:from,spender:window.gsnmixer._address});
+                permitUserSig = sig.sig
+                //user gave allowance to the Tornado, but not to our proxy... need to add one
+            }
+
+
+            data = window.gsnmixer.methods.deposit(to, commitment, permitUserSig).encodeABI()
+            to = window.gsnmixer._address
+
+        } else if ( data.startsWith(approveSig)) {
             //convert token.approve(spender,amount)
             //to:   gsnmixer.permit(token, from, spender, true, {sig} )
             // NOTE: pops-up a UI for signTypedData
@@ -164,7 +205,7 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
         // function permit(IDAI token, address holder, address spender, uint256 nonce, 
         //     uint256 expiry, bool allowed, bytes calldata sig) 
 
-        data = mixer.methods.permit(token, holder, spender, nonce, expiry, allowed, sig)
+        data = window.gsnmixer.methods.permit(token, holder, spender, nonce, expiry, allowed, sig)
             .encodeABI()
 
         return {
@@ -194,7 +235,7 @@ function init() {
 
     // global.gsnRelayer = '0x0f65a641879cCeB87164420eafc0096623a995f1' //reverts on withdraw, on send to caller.
     global.gsnRelayer = '0x2ADAf67C67f62B034FEeb62836E85fb4666dbE4b'
-    global.gsnFee = "0x1234567890"
+    global.gsnFee = '0x'+1e18.toString(16)
 
     window.gsnmixer = new myWeb3.eth.Contract(GsnMixer.abi, gsnRelayer)
 

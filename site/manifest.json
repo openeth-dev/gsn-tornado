@@ -1,6 +1,6 @@
 {
-    "name": "Tornado Cash",
-    "short_name": "Tornado Cash",
+    "name": "GSN-Enabled Tornado Cash",
+    "short_name": "GSN-Enabled Tornado Cash",
     "icons": [
         {
             "src": "/favicon/android-chrome-192x192.png",
