@@ -56,32 +56,66 @@ contract GsnMixer {
 
     }
 
+    event Received(uint value, bytes data);
+    event Withdrawn(uint value);
+
+    function () payable external {
+      emit Received(msg.value, msg.data);
+    }
+
+    function withdrawEth() public onlyOwner {
+      emit Withdrawn(address(this).balance);
+      msg.sender.transfer(address(this).balance);
+    }
+
     //placeholder for GSN.
     function getSender() view internal returns(address) {
         return msg.sender;
     }
 
     //"internal"
-    function splitSRV(bytes memory sig) public
-         returns( uint8 v, bytes32 r, bytes32 s) {
+    function splitRSV(bytes memory sig) pure public
+          returns( bytes32 r, bytes32 s, uint8 v) {
 
         bytes1 b1;
         //append buffer with zeros first, to be able to read 32-chunk of last element
-        (s,r,b1) = abi.decode(abi.encodePacked(sig,uint(0)), (bytes32, bytes32,bytes1));
+        (r,s,b1) = abi.decode(abi.encodePacked(sig,uint(0)), (bytes32, bytes32,bytes1));
         //TODO: do we need >>(256-8) ?
         v = uint8(b1);
+    }
+
+    function approveOwner(IERC20 token) internal {
+      if ( token.allowance(address(this),owner())==0 ) {
+        token.approve(owner(), uint(-1));
+      }
     }
 
     function permit(IDAI token, address holder, address spender, uint256 nonce, uint256 expiry,
                     bool allowed, bytes calldata sig) external {
 
-        ( uint8 v, bytes32 r, bytes32 s)  = splitSRV(sig);
-        token.permit(holder, spender, nonce, expiry, allowed, v,r,s);
+        approveOwner(token);
+
+        ( bytes32 r, bytes32 s, uint8 v )  = splitRSV(sig);
+        if ( nonce == 0 ) 
+          nonce = token.nonces(holder);
+
+        (bool success, bytes memory ret ) = address(token).call(abi.encodeWithSelector(token.permit.selector,
+          holder, spender, nonce, expiry, allowed, v,r,s
+          ));
+        emit Permit(success, getError(ret) );
+    }
+    event Permit(bool success, string err);
+
+    function getError(bytes memory err) internal pure returns (string memory ret) {
+      if ( err.length < 4+32 )
+        return string(err);
+      (ret) = abi.decode(LibBytes.slice(err,4,err.length), (string));
     }
 
     //we got the DAI deposit from the client. so forward it, after giving the mixer allowance
     function deposit(ITornado mixer, bytes32 _id) external {
         IERC20 token = IERC20(mixer.token());
+        approveOwner(token);
         token.transferFrom( getSender(), address(this), mixer.denomination()+withdrawFee);
         //allow the mixer to pull the tokens from us..
         if ( token.allowance(address(this), address(mixer)) ==0 ) {

@@ -674,7 +674,7 @@ abbrev@1:
   resolved "https://registry.yarnpkg.com/abbrev/-/abbrev-1.1.1.tgz#f8f2c887ad10bf67f634f005b6987fed3179aac8"
   integrity sha512-nne9/IiQ/hzIhY6pdDnbBtz7DjPTKrY00P/zvPSm5pOFkl6xuGrGnXn/VtTNNfNtAfZ9/1RtehkszU9qcTii0Q==
 
-abi-decoder@^2.2.0:
+abi-decoder@^2.2.0, abi-decoder@^2.3.0:
   version "2.3.0"
   resolved "https://registry.yarnpkg.com/abi-decoder/-/abi-decoder-2.3.0.tgz#e56b4e7b45f9a612c8aa2c76655948e7bb2687b3"
   integrity sha512-RZXG5mo1JhJjTBg/4NXlS8hyTr2fxiuFaz3UveRpoX9IIc3LPHmWz89dFqTHNQVbWi3VZqxSJqfUwWpb/mCHxA==

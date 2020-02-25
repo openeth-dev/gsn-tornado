@@ -9,6 +9,7 @@
     "@nomiclabs/buidler": "^1.1.2",
     "@openeth/gsn": "^0.4.5",
     "@openzeppelin/contracts": "^2.5.0",
+    "abi-decoder": "^2.3.0",
     "js-beautify": "^1.10.3",
     "serve": "^11.3.0",
     "truffle": "^5.1.14",
