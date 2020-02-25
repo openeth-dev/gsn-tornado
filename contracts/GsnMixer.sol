@@ -2,58 +2,40 @@ pragma solidity ^0.5.4;
 
 import "@0x/contracts-utils/contracts/src/LibBytes.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/ownership/Ownable.sol";
+import "@openeth/gsn/contracts/RelayRecipient.sol";
+import "./IUniswap.sol";
+import "./ITornado.sol";
 
 contract IDAI is IERC20 {
     function permit(address holder, address spender, uint256 nonce, uint256 expiry,
                 bool allowed, uint8 v, bytes32 r, bytes32 s) external;
-}
-
-//the interface of the Tornado contract
-// can't be a real interace, since "denomination" is a public member instead of view function
-contract ITornado {
-  uint256 public denomination;
-  address public token; //from ERC20Tornado
-
-  event Deposit(bytes32 indexed commitment, uint32 leafIndex, uint256 timestamp);
-  event Withdrawal(address to, bytes32 nullifierHash, address indexed relayer, uint256 fee);
-
-
-  /**
-    @dev Deposit funds into the contract. The caller must send (for ETH) or approve (for ERC20) value equal to or `denomination` of this instance.
-    @param _commitment the note commitment, which is PedersenHash(nullifier + secret)
-  */
-  function deposit(bytes32 _commitment) external payable;
-
-  /**
-    @dev Withdraw a deposit from the contract. `proof` is a zkSNARK proof data, and input is an array of circuit public inputs
-    `input` array consists of:
-      - merkle root of all deposits in the contract
-      - hash of unique deposit nullifier to prevent double spends
-      - the recipient of funds
-      - optional fee that goes to the transaction sender (usually a relay)
-  */
-  function withdraw(bytes calldata _proof, bytes32 _root, bytes32 _nullifierHash, 
-    address payable _recipient, address payable _relayer, uint256 _fee, uint256 _refund) external;
-
-  /** @dev whether a note is already spent */
-  function isSpent(bytes32 _nullifierHash) public view returns(bool);
+    mapping (address => uint)                      public nonces;
 }
 
 
 //Wrapper contract for Tornado Mixer
-// this way, we add GSN support for Tornado, whichout modifying the original contracts.
+// this way, we add GSN support for Tornado, without modifying the original contracts.
+// all payments are in tokens, using Uniswap
 // It is simple for a mixer, since the mixer itself doesn't really care about the msg.sender
 // (that's almost true: it assumes it has Approval to withdraw tokens from it. This means all deposits
 // go through the GsnMixer)
 // variable - a GSN-aware contract has to use a helper method getSender() instead of msg.sender.
-contract GsnMixer {
+
+contract GsnMixer is Ownable, RelayRecipient {
 
     //relaying withdraw fee in tokens (1 DAI)
     // (taken out of the deposited value)
     uint public withdrawFee = 1 ether;
+    IUniswap uniswap;
 
-    constructor() public {
+    constructor(IUniswap _uniswap, address hub) public {
+      uniswap=_uniswap;
+      setHub(hub);
+    }
 
+    function setHub(address hub) onlyOwner public {
+      setRelayHub(IRelayHub(hub));
     }
 
     event Received(uint value, bytes data);
@@ -66,11 +48,6 @@ contract GsnMixer {
     function withdrawEth() public onlyOwner {
       emit Withdrawn(address(this).balance);
       msg.sender.transfer(address(this).balance);
-    }
-
-    //placeholder for GSN.
-    function getSender() view internal returns(address) {
-        return msg.sender;
     }
 
     //"internal"
@@ -90,6 +67,14 @@ contract GsnMixer {
       }
     }
 
+    event Permit(bool success, string err);
+
+    function getError(bytes memory err) internal pure returns (string memory ret) {
+      if ( err.length < 4+32 )
+        return string(err);
+      (ret) = abi.decode(LibBytes.slice(err,4,err.length), (string));
+    }
+
     function permit(IDAI token, address holder, address spender, uint256 nonce, uint256 expiry,
                     bool allowed, bytes calldata sig) external {
 
@@ -99,29 +84,80 @@ contract GsnMixer {
         if ( nonce == 0 ) 
           nonce = token.nonces(holder);
 
-        (bool success, bytes memory ret ) = address(token).call(abi.encodeWithSelector(token.permit.selector,
-          holder, spender, nonce, expiry, allowed, v,r,s
-          ));
+        (bool success, bytes memory ret ) = address(token).call(
+            abi.encodeWithSelector(token.permit.selector, 
+              holder, spender, nonce, expiry, allowed, v,r,s ));
         emit Permit(success, getError(ret) );
-    }
-    event Permit(bool success, string err);
-
-    function getError(bytes memory err) internal pure returns (string memory ret) {
-      if ( err.length < 4+32 )
-        return string(err);
-      (ret) = abi.decode(LibBytes.slice(err,4,err.length), (string));
     }
 
     //we got the DAI deposit from the client. so forward it, after giving the mixer allowance
-    function deposit(ITornado mixer, bytes32 _id) external {
-        IERC20 token = IERC20(mixer.token());
-        approveOwner(token);
-        token.transferFrom( getSender(), address(this), mixer.denomination()+withdrawFee);
-        //allow the mixer to pull the tokens from us..
-        if ( token.allowance(address(this), address(mixer)) ==0 ) {
-            token.approve(address(mixer), uint(-1));
+    function deposit(ITornado tornado, bytes32 _id, bytes calldata permitSig) external {
+        IDAI token = IDAI(tornado.token());
+        if ( permitSig.length>0 ) {
+          this.permit(token, getSender(), address(this), token.nonces(getSender()), 0, true, permitSig);
         }
-        mixer.deposit(_id);
+
+        approveOwner(token);
+        token.transferFrom( getSender(), address(this), tornado.denomination()+withdrawFee);
+        //allow the mixer to pull the tokens from us..
+        if ( token.allowance(address(this), address(tornado)) ==0 ) {
+            token.approve(address(tornado), uint(-1));
+        }
+        tornado.deposit(_id);
     }
-    //function withdraw(bytes _proof, bytes32 _root, bytes32 _nullifierHash, address _recipient, address _relayer, uint256 _fee, uint256 _refund) 
+
+    function withdraw(ITornado tornado, bytes calldata _proof, bytes32 _root, bytes32 _nullifierHash, 
+        address payable _recipient, address payable _relayer, uint256 _fee, uint256 _refund) external {
+
+        tornado.withdraw(_proof, _root, _nullifierHash, 
+            _recipient, _relayer, _fee, _refund);
+
+    }
+
+    function acceptRelayedCall(
+        address relay,
+        address from,
+        bytes calldata encodedFunction,
+        uint256 transactionFee,
+        uint256 gasPrice,
+        uint256 gasLimit,
+        uint256 nonce,
+        bytes calldata approvalData,
+        uint256 maxPossibleCharge
+    )
+    external
+    view
+    returns (uint256, bytes memory) {
+      (relay, from, encodedFunction, transactionFee, gasPrice, gasLimit, nonce, approvalData, maxPossibleCharge);
+
+      uint tokenPrecharge=0;
+      bytes memory context = abi.encode(tokenPrecharge);
+      return(0, context);
+    }
+
+    function preRelayedCall(bytes calldata context) external returns (bytes32) {
+      uint256 tokenPrecharge = abi.decode(context, (uint256));
+      (tokenPrecharge);
+      //TODO: pre-charge
+      return bytes32(0);
+    }
+
+    function postRelayedCall(bytes calldata context, bool success, uint actualCharge, bytes32 preRetVal) external {
+      (success, actualCharge, preRetVal);
+      uint256 tokenPrecharge = abi.decode(context, (uint256));
+
+      (tokenPrecharge);
+      //TODO: refund
+    }
+
 }
+
+contract KovanGsnMixer is GsnMixer {
+
+  address constant hubAddr = 0xD216153c06E857cD7f72665E0aF1d7D82172F494;
+  address constant cDaiUniswapExchange = 0x613639E23E91fd54d50eAfd6925AF2Ed6701A46b;
+
+  constructor() GsnMixer(IUniswap(cDaiUniswapExchange), hubAddr) public {
+  }
+}
+

@@ -1,10 +1,66 @@
 /* global window */
 const {WrapperProvider} = require( './wrapper-provider')
 const GSN=require( '@openeth/gsn')
-const Web3=require('Web3')
+const Web3=require('web3')
 const IDAI = require( '../artifacts/IDAI.json')
 const GsnMixer = require( '../artifacts/GsnMixer.json')
+const abi = require( 'web3-eth-abi')
 
+const verbose=true
+
+const   approveSig = "0x095ea7b3"
+
+const   permitSig = abi.encodeFunctionSignature("permit(address,address,address,uint256,uint256,bool,bytes)")
+// const withdrawSig = '0x21a0adb632'
+const withdrawSig = abi.encodeFunctionSignature("withdraw(bytes,bytes32,bytes32,address,address,uint256,uint256)")
+
+//same sig, just added "address" as first param
+const gsnMixerWithdrawSig = 
+                    abi.encodeFunctionSignature("withdraw(address,bytes,bytes32,bytes32,address,address,uint256,uint256)")
+//nonce(address)
+const nonceSig = '0x70ae92d2'
+
+
+class MixerProvider extends WrapperProvider {
+
+    async eth_sendTransaction({from,to,gas,gasPrice,value,data}) {
+        console.log( " ", {from,to,data})
+        // return this.origSend("eth_sendTransaction", [{from,to,gas,gasPrice,value,data}] )
+        if ( data.startsWith(approveSig)) {
+            //convert token.approve(spender,amount)
+            //to:   gsnmixer.permit(token, from, spender, true, {sig} )
+            // NOTE: pops-up a UI for signTypedData
+
+            //we don't really care the amount of original "approve", as "permit only gets a true/false boolean..
+            const spender_amount = abi.decodeParameters(['address','uint256'], data.slice(10))
+            let spender = spender_amount[0];
+
+            //TODO: who should we approve? the UI asks for the Tornado to be approved. but we
+            // need to approve our GsnMixer, which in turn will approve tornado
+            //spender = mixer._address
+            const ret  = await createDaiPermitTransaction({from, holder:from, token:to, spender})
+            data = ret.data
+            to = ret.to
+            gas = 1e6.toString()
+        } else 
+        if ( data.startsWith(withdrawSig)) {
+            //convert mixer.withdraw(...)
+            //to:     gsnmixer.withdraw(mixer, ...)
+            // withdraw(bytes,bytes32,bytes32,address,address,uint256,uint256) external {
+            const params = abi.decodeParameters(
+                    ['bytes','bytes32','bytes32','address','address','uint256','uint256'], 
+                    data.slice(10))
+
+            delete params.__length__
+            console.log( "decoded params=",params)
+            data = window.gsnmixer.methods.withdraw( to, ...Object.values(params) ).encodeABI()
+
+            to = window.gsnmixer._address
+            console.log( "==== through GSN mixer")
+        }
+        return this.origSendTransaction({from,to,gas,gasPrice,value,data} )
+    }
+}
 
 var chainId
 async function signpermit({from,holder,spender,expiry=0, allowed=true}) {
@@ -112,7 +168,7 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
             .encodeABI()
 
         return {
-            to: window.mixer._address,
+            to: window.gsnmixer._address,
             data
         }
 }
@@ -129,15 +185,18 @@ function init() {
     global.gsninitialized=true
 
     // window.web3.currentProvider = WrapperProvider(window.web3.currentProvider, "web3.curProv" )
-    window.ethereum = new WrapperProvider(window.ethereum, "wETH" )
-    window.web3.currentProvider = new WrapperProvider(window.web3.currentProvider, "WEB3.cur" )
+    //TODO: do we need both ?
+    window.ethereum = new MixerProvider(window.ethereum, "wETH" )
+    window.web3.currentProvider = new MixerProvider(window.web3.currentProvider, "WEB3.cur" )
+
     // global.ethereum = WrapperProvider(global.ethereum, "gETH" )
     // global.web3 = WrapperProvider(global.web3, "gWEB3" )
 
-    global.gsnRelayer = '0x9AE9FC73A7ad54004D7eEA2817787684FBE52433'
+    // global.gsnRelayer = '0x0f65a641879cCeB87164420eafc0096623a995f1' //reverts on withdraw, on send to caller.
+    global.gsnRelayer = '0x2ADAf67C67f62B034FEeb62836E85fb4666dbE4b'
     global.gsnFee = "0x1234567890"
 
-    window.mixer = new myWeb3.eth.Contract(GsnMixer.abi, gsnRelayer)
+    window.gsnmixer = new myWeb3.eth.Contract(GsnMixer.abi, gsnRelayer)
 
 }
 

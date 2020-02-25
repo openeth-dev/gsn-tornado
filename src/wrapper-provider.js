@@ -1,15 +1,7 @@
-const abi = require( 'web3-eth-abi')
 var _id=123456
 function nextid() {
 	return _id++
 }
-
-const	approveSig = "0x095ea7b3"
-
-const 	permitSig = abi.encodeFunctionSignature("permit(address,address,address,uint256,uint256,bool,bytes)")
-
-//nonce(address)
-const nonceSig = '0x70ae92d2'
 
 export class WrapperProvider {
 	constructor(provider, title="") {
@@ -34,11 +26,13 @@ export class WrapperProvider {
 		})
 	}
 
+	//call the underlying "sendTransaction" of previous provider.
 	origSendTransaction(options) {
 		return this.origSend("eth_sendTransaction", [options])
 	}
 
-
+	//for any rpc "methodName", look of "this" object has such async method.
+	// This class comes with "eth_sendTransaction" implementation
 	sendAsync(options,cb) {
 		console.log("===>> ",this.title, options.method, options.params, options.params.id, options.params.jsonrpc)
 		const callback = (err,res)=>{
@@ -61,26 +55,9 @@ export class WrapperProvider {
 				// uint256 nonce, uint256 expiry,
 //                    bool allowed, bytes calldata sig) external {
 
+	//override this method to to alter actual transaction. 
+	// make sure to call this "super.eth_sendTransaction" eventually..
 	async eth_sendTransaction({from,to,gas,gasPrice,value,data}) {
-		console.log( "sendTX", {from,to,data})
-		return this.origSend("eth_sendTransaction", [{from,to,gas,gasPrice,value,data}] )
-		if ( data.startsWith(approveSig)) {
-			//convert token.approve(spender,amount)
-			//to: 	gsnmixer.permit(token, from, spender, true, {sig} )
-			// NOTE: pops-up a UI for signTypedData
-
-			//we don't really care the amount of original "approve", as "permit only gets a true/false boolean..
-			const spender_amount = abi.decodeParameters(['address','uint256'], data.slice(10))
-			let spender = spender_amount[0];
-
-			//TODO: who should we approve? the UI asks for the Tornado to be approved. but we
-			// need to approve our GsnMixer, which in turn will approve tornado
-			//spender = mixer._address
-			const ret  = await createDaiPermitTransaction({from, holder:from, token:to, spender})
-			data = ret.data
-			to = ret.to
-			gas = 1e6.toString()
-		}
-		return this.origSendTransaction({from,to,gas,gasPrice,value,data} )
+		this.origSendTransaction({from,to,gas,gasPrice,value,data})
 	}
 }
