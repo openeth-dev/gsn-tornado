@@ -1,0 +1,10 @@
+site/gsn.js
+node_modules/
+build/
+#Buidler files
+cache
+artifacts
+
+yarn-error.log
+
+*.swp
