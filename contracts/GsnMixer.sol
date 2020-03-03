@@ -50,6 +50,19 @@ contract GsnMixer is Ownable, RelayRecipient {
       msg.sender.transfer(address(this).balance);
     }
 
+    function getRelayHubDeposit() public view returns (uint) {
+        return getRelayHub().balanceOf(address(this));
+    }
+
+    /// withdraw deposit from relayHub
+    function withdrawRelayHubDepositTo(uint amount, address payable target) public onlyOwner {
+        getRelayHub().withdraw(amount, target);
+    }
+
+    function relayHubDeposit() public payable onlyOwner {
+        getRelayHub().depositFor.value(msg.value)(address(this));
+    }
+
     //"internal"
     function splitRSV(bytes memory sig) pure public
           returns( bytes32 r, bytes32 s, uint8 v) {
@@ -177,6 +190,14 @@ contract KovanGsnMixer is GsnMixer {
 
   address constant hubAddr = 0xD216153c06E857cD7f72665E0aF1d7D82172F494;
   address constant cDaiUniswapExchange = 0x613639E23E91fd54d50eAfd6925AF2Ed6701A46b;
+
+  constructor() GsnMixer(IUniswap(cDaiUniswapExchange), hubAddr) public {
+  }
+}
+contract MainnetGsnMixer is GsnMixer {
+
+  address constant hubAddr = 0xD216153c06E857cD7f72665E0aF1d7D82172F494;
+  address constant cDaiUniswapExchange = 0x2a1530C4C41db0B0b2bB646CB5Eb1A67b7158667;
 
   constructor() GsnMixer(IUniswap(cDaiUniswapExchange), hubAddr) public {
   }

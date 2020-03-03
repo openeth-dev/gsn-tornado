@@ -215,13 +215,29 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
 }
 
 
-function init() {
+async function init() {
     if ( global.gsninitialized )
         return 
 
     window.myWeb3 = new Web3(window.ethereum)
 
-    window.dai = new myWeb3.eth.Contract(IDAI.abi, '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa')
+    const netid = await window.myWeb3.eth.net.getId()
+    switch( netid ) {
+	case 1:
+    	  global.gsnRelayer = '0x70AAeCC36B2A8d59D630DEc468400eC3cfB70aa5' //mainnet
+    	  window.dai = new myWeb3.eth.Contract(IDAI.abi, '0x6B175474E89094C44Da98b954EedeAC495271d0F')
+	  break;
+
+	case 42:
+    	  global.gsnRelayer = '0x2ADAf67C67f62B034FEeb62836E85fb4666dbE4b' //kovan
+    	  window.dai = new myWeb3.eth.Contract(IDAI.abi, '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa')
+	  break;
+
+	default:
+		console.log( "=== unsupported netid",netid, "switch to mainnet/kovan" )
+    }
+
+
     console.log( "=== GSN webpacked ===" )
     global.gsninitialized=true
 
@@ -234,7 +250,6 @@ function init() {
     // global.web3 = WrapperProvider(global.web3, "gWEB3" )
 
     // global.gsnRelayer = '0x0f65a641879cCeB87164420eafc0096623a995f1' //reverts on withdraw, on send to caller.
-    global.gsnRelayer = '0x2ADAf67C67f62B034FEeb62836E85fb4666dbE4b'
     global.gsnFee = '0x'+1e18.toString(16)
 
     window.gsnmixer = new myWeb3.eth.Contract(GsnMixer.abi, gsnRelayer)
