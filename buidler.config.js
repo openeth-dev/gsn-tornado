@@ -15,5 +15,8 @@ module.exports = {
 		kovan: {
 			url: "https://ropsten.infura.io/v3/c3422181d0594697a38defe7706a1e5b"
 		}
+	},
+	solc: {
+		version: "0.5.16"
 	}
 };
