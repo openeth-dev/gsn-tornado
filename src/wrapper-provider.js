@@ -8,6 +8,14 @@ export class WrapperProvider {
 		if ( !provider.send )
 			throw Error( "no 'send'")
 		this.provider=provider
+		Object.getOwnPropertyNames(provider).forEach(name=>{
+			console.log( "=== wrapper ", name,  !!this[name])
+			if ( !this[name]) {
+				const v = provider[name]
+				this[name] = typeof v === 'function' ? v.bind(provider) : v
+			}
+		})
+		this.on = provider.on
 		this.title=title
 	}
 
@@ -18,8 +26,8 @@ export class WrapperProvider {
 	origSend(method, params, {id,jsonrpc="2.0"}= {}) {
 		return new Promise((resolve,reject)=> {
 			this.provider.sendAsync({method,params,id: id || nextid(), jsonrpc}, (err,res)=>{
-				if (err) { 
-					reject(err.error || err)
+				if (err) {
+					return reject(err.error || err)
 				}
 				resolve(res.result)
 			})
@@ -51,11 +59,11 @@ export class WrapperProvider {
 		this.provider.sendAsync(options,callback)
 	}
 
-//	    function permit(IDAI token, address holder, address spender, 
+//	    function permit(IDAI token, address holder, address spender,
 				// uint256 nonce, uint256 expiry,
 //                    bool allowed, bytes calldata sig) external {
 
-	//override this method to to alter actual transaction. 
+	//override this method to to alter actual transaction.
 	// make sure to call this "super.eth_sendTransaction" eventually..
 	async eth_sendTransaction({from,to,gas,gasPrice,value,data}) {
 		this.origSendTransaction({from,to,gas,gasPrice,value,data})

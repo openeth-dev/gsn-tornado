@@ -4,6 +4,7 @@ const GsnMixer = artifacts.require('GsnMixer')
 const LocalUniswap = artifacts.require('LocalUniswap')
 const SampleToken = artifacts.require('SampleToken')
 const DummyDeposit = artifacts.require('DummyDeposit')
+const RelayHub1 = artifacts.require('RelayHub1')
 
 //this require crashes: on: "Error: Cannot find module './lib/api'", so had to copy it in:
 // const {  getRelayRequest } = require('@openeth/gsn/src/js/relayclient/utils')
@@ -32,13 +33,12 @@ function getRelayRequest (sender, recipient, txData, fee, gasPrice, gasLimit, se
 
 // Traditional Truffle test
 contract('GsnMixer', accounts => {
-  let gm, uni, tok
+  let gm, uni, tok, hub
   before(async () => {
-    const hubaddr = '0x' + 'a'.repeat(40)
+    const hub = await RelayHub1.new({ gas: 9500000 })
     uni = await LocalUniswap.new({ value: 1e18 })
     tok = await SampleToken.at(await uni.tokenAddress())
-    gm = await GsnMixer.new(uni.address, hubaddr)
-    await gm.setHub(accounts[0])
+    gm = await GsnMixer.new(uni.address, hub.address, true)
   })
   it('#splitSRV', async () => {
     const ss = '1'.repeat(64)
@@ -84,11 +84,26 @@ contract('GsnMixer', accounts => {
     const err = ret[1] ? Buffer.from(ret[1].replace(/^0x/, ''), 'hex').toString() : ''
     return { code, err }
   }
+  //
+  // it('estimate post', async () => {
+  //   const context = web3.eth.abi.encodeParameters(['address', 'uint256'], ['0x' + '1'.repeat(40), 0])
+  //
+  //   console.log( "estimate=", await gm.calcPostGasUsage.call());
+  //   ret = await gm.contract.methods.postRelayedCall(
+  //     context,
+  //     true, //      bool success,
+  //     '0x'+'0'.repeat(64),    // bytes32 preRetVal,
+  //     0,    // uint256 gasUseWithoutPost,
+  //     0,    // uint256 txFee,
+  //     1    // uint256 gasPrice
+  //   ).estimateGas()
+  //   console.log(ret)
+  // })
 
   describe('#acceptRelayedCall', async () => {
     let goodFunction, revertingFunction
 
-    before( async()=>{
+    before(async () => {
       //this function succeeds on chain
       goodFunction = gm.contract.methods.testFunction().encodeABI()
 
@@ -109,11 +124,12 @@ contract('GsnMixer', accounts => {
       assert.ok(false, 'should revert')
     })
 
-    it('balance too low', async () => {
+    it('succeed if function doesn\'t revert', async () => {
       const { code, err } = await callARC({
         encodedFunction: goodFunction
       })
-      assert.deepEqual({ code, err }, { code: 101, err: 'DAI balance too low' })
+      assert.deepEqual({ code, err }, { code: 0, err: '' })
+      // assert.deepEqual({ code, err }, { code: 101, err: 'DAI balance too low' })
     })
 
     it('revert on unsupported mixer', async () => {
@@ -121,7 +137,7 @@ contract('GsnMixer', accounts => {
       const { code, err } = await callARC({
         encodedFunction: gm.contract.methods.deposit(dummyTornado.address, '0x', '0x').encodeABI()
       })
-      assert.deepEqual({ code, err }, { code: 99, err: 'unsupported mixer' })
+      assert.deepEqual({ code, err }, { code: 99, err: 'deposit: unsupported mixer' })
     })
 
     it('continue with a supported mixer', async () => {
@@ -139,7 +155,7 @@ contract('GsnMixer', accounts => {
         from: accounts[0],
         encodedFunction: goodFunction
       })
-      assert.equal( code==0 ? "ok" : code+ err , "ok" )
+      assert.equal(code == 0 ? 'ok' : code + err, 'ok')
     })
 
     it('failed func', async () => {

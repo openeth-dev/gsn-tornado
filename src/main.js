@@ -17,28 +17,29 @@ const   permitSig = abi.encodeFunctionSignature("permit(address,address,address,
 const withdrawSig = abi.encodeFunctionSignature("withdraw(bytes,bytes32,bytes32,address,address,uint256,uint256)")
 
 //same sig, just added "address" as first param
-const gsnMixerWithdrawSig = 
+const gsnMixerWithdrawSig =
                     abi.encodeFunctionSignature("withdraw(address,bytes,bytes32,bytes32,address,address,uint256,uint256)")
-//nonce(address)
-const nonceSig = '0x70ae92d2'
-
 
 class MixerProvider extends WrapperProvider {
 
     constructor( origProvider ) {
         let provider = origProvider
 
-        let relayprovider = new GSN.RelayProvider(origProvider, {verbose, force_gasLimit:2e6})
+        let relayprovider = new GSN.RelayProvider(origProvider, {
+            verbose,
+            methodSuffix: '_v3',
+            force_gasLimit:2e6
+        })
         let useGSN=true
         if ( useGSN ) {
             //a provider that pass-through any method that is not defined in RelayProvider
             // (e.g. event handling)
             const wrapper = new Proxy( origProvider, {
-                 get:(target,prop)=>{ 
-                    console.log('prop=',prop)
-                    //TODO: RelayProvider's "enable" is broken... 
+                 get:(target,prop)=>{
+                    // console.log('prop=',prop)
+                    //TODO: RelayProvider's "enable" is broken...
                     if ( prop==='enable' ) return origProvider.enable
-                    return relayprovider[prop] || target[prop] 
+                    return relayprovider[prop] || target[prop]
                 }
              })
             provider = wrapper
@@ -63,7 +64,6 @@ class MixerProvider extends WrapperProvider {
                 //user gave allowance to the Tornado, but not to our proxy... need to add one
             }
 
-
             data = window.gsnmixer.methods.deposit(to, commitment, permitUserSig).encodeABI()
             to = window.gsnmixer._address
 
@@ -83,13 +83,13 @@ class MixerProvider extends WrapperProvider {
             data = ret.data
             to = ret.to
             gas = 1e6.toString()
-        } else 
+        } else
         if ( data.startsWith(withdrawSig)) {
             //convert mixer.withdraw(...)
             //to:     gsnmixer.withdraw(mixer, ...)
             // withdraw(bytes,bytes32,bytes32,address,address,uint256,uint256) external {
             const params = abi.decodeParameters(
-                    ['bytes','bytes32','bytes32','address','address','uint256','uint256'], 
+                    ['bytes','bytes32','bytes32','address','address','uint256','uint256'],
                     data.slice(10))
 
             delete params.__length__
@@ -99,7 +99,7 @@ class MixerProvider extends WrapperProvider {
             to = window.gsnmixer._address
             console.log( "==== through GSN mixer")
         }
-        return this.origSendTransaction({from,to,gas,gasPrice,value,data} )
+        return this.origSendTransaction({from,to,gas,gasPrice,value,data, jsonStringifyRequest:true,  methodSuffix: '_v3' } )
     }
 }
 
@@ -109,7 +109,7 @@ async function signpermit({from,holder,spender,expiry=0, allowed=true}) {
     if ( !chainId) {
          chainId = await myWeb3.eth.net.getId()
          console.log( "chainId=",chainId)
-    }   
+    }
 
     //based on: https://github.com/mosendo/gasless/blob/7688283021bbdb1c99b6951944345af0ba06e036/app/src/utils/relayer.js#L38-L79
     const Permit = [
@@ -152,7 +152,7 @@ async function signpermit({from,holder,spender,expiry=0, allowed=true}) {
         message
     });
 
-    const sig = await new Promise((resolve,reject)=>web3.currentProvider.sendAsync({
+    const sig = await new Promise((resolve,reject)=>window.myWeb3.currentProvider.sendAsync({
         method: "eth_signTypedData_v3",
         params: [from, data],
         from
@@ -167,8 +167,8 @@ async function signpermit({from,holder,spender,expiry=0, allowed=true}) {
 //create a "permit" transaction, to be sent with sendTransaction to our mixer
 // returns { data,to } values for sendTransaction
 window.createDaiPermitTransaction = async function({from, holder, token, spender, allowed=true}) {
-        // function permit(address holder, address spender, uint256 nonce, 
-        //   uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s) 
+        // function permit(address holder, address spender, uint256 nonce,
+        //   uint256 expiry, bool allowed, uint8 v, bytes32 r, bytes32 s)
 
         //just validation: we currently support only "permit" of DAI
         if ( token && token != dai._address )
@@ -183,7 +183,7 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
         if ( allowed !== true && allowed != false ) {
             throw Error( 'invalid "allowed" bool: '+allowed)
         }
-        
+
         console.log( "before permit allowance=", await dai.methods.allowance(holder, spender)
             .call())
         const ret = await signpermit({from, spender, holder, allowed})
@@ -202,8 +202,8 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
         //         holder, spender, nonce, expiry, allowed, v,r,s
         //     ).send({from:sender})
 
-        // function permit(IDAI token, address holder, address spender, uint256 nonce, 
-        //     uint256 expiry, bool allowed, bytes calldata sig) 
+        // function permit(IDAI token, address holder, address spender, uint256 nonce,
+        //     uint256 expiry, bool allowed, bytes calldata sig)
 
         data = window.gsnmixer.methods.permit(token, holder, spender, nonce, expiry, allowed, sig)
             .encodeABI()
@@ -217,7 +217,7 @@ window.createDaiPermitTransaction = async function({from, holder, token, spender
 
 async function init() {
     if ( global.gsninitialized )
-        return 
+        return
 
     window.myWeb3 = new Web3(window.ethereum)
 
@@ -229,7 +229,7 @@ async function init() {
 	  break;
 
 	case 42:
-    	  global.gsnRelayer = '0x2ADAf67C67f62B034FEeb62836E85fb4666dbE4b' //kovan
+    	  global.gsnRelayer = '0xCeEb89ECC8064A44E5B9e00e01FDA7B627f2fe5b' //kovan
     	  window.dai = new myWeb3.eth.Contract(IDAI.abi, '0x4f96fe3b7a6cf9725f59d353f723c1bdb64ca6aa')
 	  break;
 
@@ -244,12 +244,9 @@ async function init() {
     // window.web3.currentProvider = WrapperProvider(window.web3.currentProvider, "web3.curProv" )
     //TODO: do we need both ?
     window.ethereum = new MixerProvider(window.ethereum, "wETH" )
-    window.web3.currentProvider = new MixerProvider(window.web3.currentProvider, "WEB3.cur" )
+    delete window.web3
+    // window.web3.currentProvider = new MixerProvider(window.web3.currentProvider, "WEB3.cur" )
 
-    // global.ethereum = WrapperProvider(global.ethereum, "gETH" )
-    // global.web3 = WrapperProvider(global.web3, "gWEB3" )
-
-    // global.gsnRelayer = '0x0f65a641879cCeB87164420eafc0096623a995f1' //reverts on withdraw, on send to caller.
     global.gsnFee = '0x'+1e18.toString(16)
 
     window.gsnmixer = new myWeb3.eth.Contract(GsnMixer.abi, gsnRelayer)
