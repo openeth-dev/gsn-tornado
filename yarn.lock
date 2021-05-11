@@ -363,26 +363,6 @@
     web3-eth-abi "1.2.1"
     web3-utils "1.2.1"
 
-"@openeth/gsn@../../gsn/openeth-gsn-0.5.0-nonview-arc2.tgz":
-  version "0.5.0-nonview-arc2"
-  resolved "../../gsn/openeth-gsn-0.5.0-nonview-arc2.tgz#b342702b0ffa048dc6ad68f573b0a86eef3c2307"
-  dependencies:
-    "@0x/contracts-utils" "3.1.1"
-    abi-decoder "2.2.2"
-    axios "0.18.0"
-    big-js "3.1.3"
-    big.js "5.2.2"
-    eth-crypto "1.2.7"
-    eth-sig-util "2.5.2"
-    ethereumjs-tx "1.3.7"
-    ethereumjs-util "6.0.0"
-    ethereumjs-wallet "0.6.3"
-    openzeppelin-solidity "2.3.0"
-    request-promise "4.2.2"
-    web3 "1.2.5"
-    web3-utils "1.2.5"
-    webpack-bundle-analyzer "3.3.2"
-
 "@openeth/gsn@../../gsn/openeth-gsn-0.5.0-nonview-arc3.tgz":
   version "0.5.0-nonview-arc3"
   resolved "../../gsn/openeth-gsn-0.5.0-nonview-arc3.tgz#d0931accf9c9828b47a75682fc5cf803021f2056"
@@ -4569,9 +4549,9 @@ lodash.values@^4.3.0:
   integrity sha1-o6bCsOvsxcLLocF+bmIP6BtT00c=
 
 lodash@^4.13.1, lodash@^4.17.10, lodash@^4.17.11, lodash@^4.17.13, lodash@^4.17.14, lodash@^4.17.15:
-  version "4.17.15"
-  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.15.tgz#b447f6670a0455bbfeedd11392eff330ea097548"
-  integrity sha512-8xOcRHvCjnocdS5cpwXQXVzmmh5e5+saE2QGoeQmbKmRS6J3VQppPOIt0MnmE+4xlZoumy0GPG0D0MVIQbNA1A==
+  version "4.17.21"
+  resolved "https://registry.yarnpkg.com/lodash/-/lodash-4.17.21.tgz#679591c564c3bffaae8454cf0b3df370c3d6911c"
+  integrity sha512-v2kDEe57lecTulaDIuNTPy3Ry4gLGJ6Z1O3vE1krgXZNrsQ+LFTGHVxVjcXPs17LhbZVGedAJv8XZ1tvj5FvSg==
 
 lowercase-keys@1.0.0:
   version "1.0.0"
